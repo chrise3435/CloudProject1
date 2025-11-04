@@ -16,7 +16,7 @@ terraform {
     }
 }
 
-provider "aws" {
+provider "aws" { ##declaring the cloud platform provider that we will use terraform to create infrastructure for
     region = "ap-southeast-2"
 }
 # Find latest Amazon Linux 2 AMI
@@ -30,13 +30,13 @@ data "aws_ami" "amazon_linux_2" {
     }
 }
 
-# S3 bucket (versioned, private, deletable by Terraform)
-resource "aws_s3_bucket" "AppImagesBucket" {
-    bucket = "appimagesbucket-1234567890"
+# S3 bucket 
+resource "aws_s3_bucket" "appimagesbucket-1234567890" { 
+    bucket = "appimagesbucket-1234567890" ##declaring name for the bucket
     acl    = "private"
 
     versioning {
-        enabled = true
+        enabled = true ##enabling versioning for the bucket
     }
 
     force_destroy = true
@@ -48,9 +48,10 @@ resource "aws_s3_bucket" "AppImagesBucket" {
 
 
 # EC2 instance (simple webserver)
-resource "aws_instance" "tf-web-instance" {
+resource "aws_instance" "tf-web-instance" { ##giving name of instance
     ami                    = data.aws_ami.amazon_linux_2.id
-    instance_type          = "t2.micro"
+    instance_type          = "t2.micro" ##declaring instance type
+    disable_api_termination = true ##enabling termination protection to prevent EC2 virtual server from being accidentally terminated
 
     
     tags = {
