@@ -31,6 +31,7 @@ data "aws_ami" "amazon_linux_2" {
 }
 
 # S3 bucket 
+
 resource "aws_s3_bucket" "appimagesbucket-1234567890" { 
     bucket = "appimagesbucket-1234567890" ##declaring name for the bucket
     acl    = "private"
@@ -57,4 +58,16 @@ resource "aws_instance" "tf-web-instance" { ##giving name of instance
     tags = {
         Name        = "tf-web-instance"
     }
+
+             user_data = <<-EOF
+              #!/bin/bash
+              yum update -y
+              yum install -y httpd
+              systemctl start httpd
+              systemctl enable httpd
+              echo "${file("${path.module}/homepage.html")}" > /var/www/html/homepage.html 
+              EOF 
+          ##file() reads contents of a file from  and inserts it into user data script
+                 ##using user data to install and start apache web server and deploy a simple html page on EC2 instance
 }
+ 
