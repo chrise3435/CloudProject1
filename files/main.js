@@ -1,7 +1,13 @@
 
+//frontend JS referenced by your HTML
 
 // Handle the file upload form submission
-document.getElementById('upload-form').addEventListener('submit', async function (event) {
+
+document.getElementById('file-input').addEventListener('change', (e) => {
+    console.log('This is the file you want to upload:', e.target.files[0]);
+}); //checking if site is getting the file input before the user uploads
+
+document.getElementById('upload-form').addEventListener('submit', async function (event) { //this function runs when the Upload button is clicked
     event.preventDefault(); // Prevent the default form submission
 
     const fileInput = document.getElementById('file-input');
@@ -24,6 +30,8 @@ document.getElementById('upload-form').addEventListener('submit', async function
             },
             body: JSON.stringify({ filename: file.name, filetype: file.type })
         });
+
+        console.log('Response from server:', response);
 
         if (!response.ok) {
             throw new Error('Failed to get presigned URL');
@@ -50,3 +58,4 @@ document.getElementById('upload-form').addEventListener('submit', async function
         document.getElementById('message').textContent = 'Error uploading file. Please try again.';
     }
 });
+
