@@ -47,6 +47,17 @@ resource "aws_s3_bucket" "appimagesbucket-1234567890" {
     }
 }
 
+resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configuration for S3 bucket
+  bucket = aws_s3_bucket.appimagesbucket-1234567890.id
+
+  cors_rule {
+    allowed_methods = ["GET", "PUT", "POST", "DELETE"]
+    allowed_origins = ["*"]
+    allowed_headers = ["*"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
 
 # EC2 instance (simple webserver)
 resource "aws_instance" "tf-web-instance" { ##giving name of instance
