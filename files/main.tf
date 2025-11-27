@@ -52,7 +52,7 @@ resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configurat
 
   cors_rule {
     allowed_methods = ["GET", "PUT", "POST", "DELETE"]
-    allowed_origins = ["*"]
+    allowed_origins = ["http://localhost:3000"] ##allowing requests only from localhost:3000
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000

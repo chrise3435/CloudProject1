@@ -28,19 +28,24 @@ document.getElementById('upload-form').addEventListener('submit', async function
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ filename: file.name, filetype: file.type })
+            body: JSON.stringify({ fileName: file.name, fileType: file.type })
         });
 
         console.log('Response from server:', response);
+        console.log('Presigned URL:', response.url); //adding log to see the presigned URL
 
         if (!response.ok) {
             throw new Error('Failed to get presigned URL');
         }
 
-        const { url, key } = await response.json(); // Get the presigned URL and key
+        const { uploadURL } = await response.json(); // Get the presigned URL
+        //const { url, key } = await response.json(); // Get the presigned URL and key
+        //console.log('Presigned URL real :', url); //adding log to see the presigned URL
 
+        console.log('Upload URL:', uploadURL); // Log the upload URL, this shows the URL to upload to S3
+        
         // Upload the file to S3 directly using the presigned URL
-        const s3Response = await fetch(url, {
+        const s3Response = await fetch(uploadURL, {
             method: 'PUT',
             headers: {
                 'Content-Type': file.type
