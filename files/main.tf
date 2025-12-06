@@ -46,7 +46,7 @@ resource "aws_s3_bucket" "appimagesbucket-1234567890" {
         Name        = "appimagesbucket-1234567890"
     }
 }
-resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configuration for S3 bucket
+resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configuration for S3 bucket for testing from local website
   bucket = aws_s3_bucket.appimagesbucket-1234567890.id
 
   cors_rule {
@@ -59,14 +59,16 @@ resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configurat
 }
 ##tEC2 instance (simple webserver)
 resource "aws_instance" "tf-web-instance" { ##giving name of instance
-    ami = data.aws_ami.amazon_linux_2.id ##using latest Amazon Linux 2 AMI
+    ami =  data.aws_ami.amazon_linux_2.id ##using latest Amazon Linux 2 AMI
     instance_type = "t3.micro" ##declaring instance type
     subnet_id = aws_subnet.publicsubnet.id ##placing instance in public subnet
     vpc_security_group_ids = [aws_security_group.web_sg.id] ##associating security group with instance
      ##so that it can be accessed over the internet
+    iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name ##attaching instance profile to EC2 instance
     disable_api_termination = true ##enabling termination protection to prevent EC2 virtual server from being accidentally terminated
 
     
+
     tags = {
         Name        = "tf-web-instance"
     }
