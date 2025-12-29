@@ -1,2 +1,3 @@
-This is a cloud-based project that involves hosting a simple website on a virtual server (EC2) on AWS Cloud platform, where photos that'll be uploaded from web app will be stored in a storage
-container (S3). In this project, these cloud resources (server, storage, etc.) are created in the AWS using Terraform. 
+This is a cloud-based project that involves hosting a simple website on a virtual server (Amazon EC2) on the AWS Cloud platform. The website allows users to upload photos, which are stored in an Amazon S3 storage bucket.
+
+All cloud resources, including compute and storage, are provisioned and managed using Terraform as Infrastructure as Code (IaC). The project also includes planned enhancements such as database integration, improved security, monitoring, and AI-based features.
