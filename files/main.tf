@@ -59,7 +59,7 @@ resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configurat
 }
 ##tEC2 instance (simple webserver)
 resource "aws_instance" "tf-web-instance" { ##giving name of instance
-    ami =  data.aws_ami.amazon_linux_2.id ##using latest Amazon Linux 2 AMI
+    ami =  data.aws_ami.amazon_linux_2.id  ##using latest Amazon Linux 2 AMI
     instance_type = "t3.micro" ##declaring instance type
     subnet_id = aws_subnet.publicsubnet.id ##placing instance in public subnet
     vpc_security_group_ids = [aws_security_group.web_sg.id] ##associating security group with instance
@@ -85,3 +85,37 @@ resource "aws_instance" "tf-web-instance" { ##giving name of instance
                  ##using user data to install and start apache web server and deploy a simple html page on EC2 instance
 }
  
+
+
+##creating subnet group for RDS instance
+resource "aws_db_subnet_group" "rds_subnet_group" { 
+  name       = "websitedatabasesubnetgroup"
+  subnet_ids = var.subnet_ids
+
+  tags = {
+    Name = "websitedatabasesubnetgroup"
+  }
+}
+
+##creating the rds database instance
+
+resource "aws_db_instance" "mydbinstance" {   
+    allocated_storage    = 20
+        engine               = "mysql"
+        engine_version       = "8.0"
+        instance_class       = "db.t3.micro"
+        db_name              = "websitedatabase"
+        username             = var.db_username
+        password             = var.db_password
+        parameter_group_name = "default.mysql8.0"
+        skip_final_snapshot  = true
+        vpc_security_group_ids = [aws_security_group.rds_sg.id] ##associating RDS security group to allow access from EC2 instance
+        db_subnet_group_name = aws_db_subnet_group.rds_subnet_group.name ##ensuring RDS instance is created in the specified subnets
+        tags = {
+            Name = "websitedatabase"
+        }
+        multi_az =  false   
+        availability_zone = var.availability_zone
+        publicly_accessible = false
+        
+    }
