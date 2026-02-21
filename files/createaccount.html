@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account</title>
+  <link rel="stylesheet" href="login.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Create Account</h2>
+
+    <input type="text" id="newUsername" placeholder="Username" required>
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="newPassword" placeholder="Password" required>
+    <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+
+    <button id="registerBtn">Create Account</button>
+    <button id="backToLoginBtn" class="secondary-btn">Back to Login</button>
+
+    <div class="message" id="message"></div>
+  </div>
+
+  <script>
+    document.getElementById("backToLoginBtn").addEventListener("click", function () {
+      window.location.href = "loginpage.html";
+    });
+
+    document.getElementById("registerBtn").addEventListener("click", async  function () {
+     const username = document.getElementById("newUsername").value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("newPassword").value;
+  const confirm = document.getElementById("confirmPassword").value;
+  const message = document.getElementById("message");
+
+      if (password !== confirm) {
+        message.textContent = "Passwords do not match!";
+        message.style.color = "red";
+      } else {
+        message.textContent = "Account created successfully!";
+        message.style.color = "green";
+      }
+    
+  try {
+    const response = await fetch("/register", {  // this calls the /register route in server.js to create user account in the database table 
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ username, email, password })
+    });
+
+    const data = await response.json();
+    if (data.success) {
+      message.textContent = "Account created successfully!";
+      message.style.color = "green";
+    } else {
+      message.textContent = data.message;
+      message.style.color = "red";
+    }
+
+  } catch (error) {
+    message.textContent = "Server error, try again.";
+    message.style.color = "red";
+  }
+});
+  </script>
+</body>
+</html>

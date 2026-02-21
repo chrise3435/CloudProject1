@@ -25,6 +25,8 @@ document.getElementById('upload-form').addEventListener('submit', async function
         // Make a request to the backend to get a presigned URL for S3
         const response = await fetch('/get-presigned-url', {
             method: 'POST',
+            credentials: 'include', // 🔴 REQUIRED
+
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -64,3 +66,35 @@ document.getElementById('upload-form').addEventListener('submit', async function
     }
 });
 
+// Handle the login form submission
+document.getElementById('loginBtn').addEventListener('click', loginUser);
+document.getElementById('createAccountBtn').addEventListener('click', () => {
+  window.location.href = 'createaccount.html';
+});
+
+
+async function loginUser() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+
+  if (!username || !password) {
+    alert("Please enter both username and password");
+    return;
+  }
+
+  const response = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+
+  const result = await response.json();
+
+  if(result.success){
+    document.getElementById('message').style.color = 'green';
+    document.getElementById('message').innerText = "Login successful!";
+  } else {
+    document.getElementById('message').style.color = 'red';
+    document.getElementById('message').innerText = result.message;
+  }
+}
