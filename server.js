@@ -65,9 +65,9 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,    
   port: 3306  ,
-  ssl: {
-    ca: fs.readFileSync('./certs/global-bundle.pem') // Path to the CA certificate bundle for RDS SSL connection to ensure secure database connection
-  },
+  //ssl: {
+  //  ca: fs.readFileSync('./certs/global-bundle.pem') // Path to the CA certificate bundle for RDS SSL connection to ensure secure database connection
+  //},
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
