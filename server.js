@@ -1,5 +1,5 @@
 // server.js (Node.js) = handles backend requests to generate presigned URLs 
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import express from "express";
@@ -7,8 +7,8 @@ import cors from "cors";
 import 'dotenv/config';
 import path from "path";
 import { fileURLToPath } from "url";
-import fs from 'fs';
-import session  from "express-session"; 
+import { SecretsManagerClient, GetSecretValueCommand } 
+  from "@aws-sdk/client-secrets-manager";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,7 +23,37 @@ app.use(express.json());
 app.use(express.static('files')); // this is to ensure server can show files from files folder, so when server starts all the files in 'files folder' will run
 import { Pool } from 'pg'; //this is for the connection pool to the database, it allows us to manage multiple connections to the database efficiently by reusing existing connections instead of creating new ones for each request
 import bcrypt from 'bcrypt'; // bcrypt is used for hashing passwords before storing them in the database for security
+let pool;
 
+async function getDbCredentials() { //this function gets the db credentials from AWS Secrets Manager, this is to ensure that the database credentials are not hardcoded in the code and are securely stored in AWS Secrets Manager, ensuring that the system won't break upon server startup due to missing environment variables, and also allows for easier management of credentials without needing to change the code
+
+  const client = new SecretsManagerClient({ region: "ap-southeast-2" }); // Create a Secrets Manager client, this is used to interact with AWS Secrets Manager to retrieve the database credentials
+  const response = await client.send(
+    new GetSecretValueCommand({
+      SecretId: "rds_credentials"
+    })
+  );
+
+  return JSON.parse(response.SecretString);
+}
+async function initializeDbconnection() { //this function initializes the database connection pool using the credentials retrieved from AWS Secrets Manager, this is called when the server starts to ensure that the database connection is established and ready to handle requests
+  const credentials = await getDbCredentials();
+
+  pool = new Pool({
+    host: credentials.host,
+    user: credentials.username,
+    password: credentials.password,
+    database: credentials.database,
+    port: credentials.port,
+    ssl:  { ca: fs.readFileSync(path.join(__dirname, "global-bundle.pem")).toString() }, // this is to ensure that the connection to the database is secure by using SSL and providing the CA certificate for verification
+      waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+  });
+
+  console.log("Database connected TO :", credentials.host, "Under username : ", credentials.username);
+
+}
 
 //setting the default page which is login, this means the page that first shows up when the user opens webapp  
 app.get("/", (req, res) => {
@@ -58,20 +88,6 @@ app.post("/get-presigned-url", async (req, res) => {
 });
 
 
-// pool to contain cache of database connections, this is to improve performance by reusing existing connections instead of creating new ones for each request
-const pool = new Pool({
-  host: process.env.DB_HOST,        
-  user: process.env.DB_USER,        
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,    
-  port: 3306  ,
-  //ssl: {
-  //  ca: fs.readFileSync('./certs/global-bundle.pem') // Path to the CA certificate bundle for RDS SSL connection to ensure secure database connection
-  //},
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
 
 // logic for handling a user login request, this function is called when a user attempts to log in to the webapp
 app.post('/api/login', async (req, res) => {
@@ -134,4 +150,10 @@ function requireLogin(req, res, next) {
   }
   next();
 }
+
+async function startServer() {
+  await initializeDbconnection(); // Initialize the database connection before starting the server
 app.listen(3000, "0.0.0.0", () => console.log("Server running on port 3000"));
+}
+
+startServer(); // Start the server after initializing the database connection

@@ -59,91 +59,180 @@ resource "aws_instance" "tf-web-instance" { ##giving name of instance
     disable_api_termination = true ##enabling termination protection to prevent EC2 virtual server from being accidentally terminated
     key_name      = aws_key_pair.ec2_key.key_name ##associating key pair to allow SSH access to instance
 
-##git commit -m "Attach key pair to EC2 instance for SSH access, changed user data script to install Node.js application instead of static HTML page hosting,
-##and changed AMI to Amazon Linux 2023 for Node.js 18 support"
 
     tags = {
         Name        = "tf-web-instance"
     }
-    
-    ##installing and configuring Node.js application using user data script which is different to static HTML page hosting via Apache
-    user_data =  <<-EOF
-     #!/bin/bash
+    ##difference in below script is it get me to install pm2 as ec2 user rather than root user
+  user_data = <<-EOF
+#!/bin/bash
+set -e
+
+# ------------------------------------
+# System update + tools
+# ------------------------------------
 dnf update -y
+dnf install -y git curl
 
-# Install Git
-dnf install git -y
-
+# ------------------------------------
+# Install Node.js 18
+# ------------------------------------
 curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
 dnf install -y nodejs
 
+# ------------------------------------
+# ------------------------------------
+# Setup npm global directory for ec2-user
+# ------------------------------------
+NPM_GLOBAL_DIR=/home/ec2-user/.npm-global
 
-# -------------------------------
-# Install PM2 correctly for ec2-user
-# -------------------------------
-sudo su - ec2-user <<'EOT'
-# Create user-local npm global directory
-mkdir -p ~/.npm-global
-npm config set prefix '~/.npm-global'
+mkdir -p $NPM_GLOBAL_DIR
+chown -R ec2-user:ec2-user $NPM_GLOBAL_DIR
 
-# Add it to PATH permanently
-echo 'export PATH=$HOME/.npm-global/bin:$PATH' >> ~/.bashrc
-export PATH=$HOME/.npm-global/bin:$PATH
+runuser -l ec2-user -c "npm config set prefix $NPM_GLOBAL_DIR"
 
-# Install PM2 globally
-npm install -g pm2
-EOT
+echo "export PATH=$NPM_GLOBAL_DIR/bin:\$PATH" >> /home/ec2-user/.bashrc
 
-# Create app directory
+# ------------------------------------
+# Install PM2 (as ec2-user)
+# ------------------------------------
+runuser -l ec2-user -c "
+  export PATH=$NPM_GLOBAL_DIR/bin:\$PATH
+  npm install -g pm2
+"
+
+# ------------------------------------
+# Clone app repo
+# ------------------------------------
 APP_DIR=/home/ec2-user/myapp
+REPO_URL="https://github.com/chrise3435/CloudProject1.git"
+
 mkdir -p $APP_DIR
 chown ec2-user:ec2-user $APP_DIR
 
-cd $APP_DIR
-
-# Clone or pull the latest code from GitHub
-REPO_URL="https://github.com/chrise3435/CloudProject1.git"
 if [ -d "$APP_DIR/.git" ]; then
-    cd $APP_DIR
-    git pull
+runuser -l ec2-user -c "cd \"$APP_DIR\" && git reset --hard && git pull origin main"
 else
-    git clone $REPO_URL $APP_DIR
+  runuser -l ec2-user -c "git clone $REPO_URL $APP_DIR"
 fi
-# Ensure package.json has type: module
-cat <<EOT > package.json
-{
-  "name": "myapp",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "start": "node server.js"
-  }
-}
-EOT
 
-# -------------------------------
-# Install Node dependencies
-# -------------------------------
-# Switch to ec2-user to ensure npm uses correct permissions
-sudo su - ec2-user <<'EOT'
-cd /home/ec2-user/myapp
-npm install
-EOT
+# ------------------------------------
+# Install dependencies
+runuser -l ec2-user -c "
+  export PATH=$NPM_GLOBAL_DIR/bin:\$PATH
+  cd $APP_DIR
+  npm install
+    # Download the RDS global CA bundle
+  wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 
-# -------------------------------
+  # Ensure correct ownership (important!)
+  chown ec2-user:ec2-user global-bundle.pem
+  chmod 644 global-bundle.pem
+
+"
+
+# ------------------------------------
 # Start app with PM2
-# -------------------------------
-sudo su - ec2-user <<'EOT'
-cd /home/ec2-user/myapp
-# Kill any old PM2 processes to avoid caching issues
-pm2 delete all || true
-pm2 start server.js --name myapp
-pm2 save
+# ------------------------------------
+runuser -l ec2-user -c "
+  export PATH=$NPM_GLOBAL_DIR/bin:\$PATH
+  cd $APP_DIR
+  pm2 start server.js --name myapp
+  pm2 save
+"
+
+# ------------------------------------
+# Enable PM2 startup on reboot (CRITICAL)
+# ------------------------------------
+# ------------------------------------
+# Enable PM2 startup on reboot
+# ------------------------------------
+export PATH=$NPM_GLOBAL_DIR/bin:$PATH
 pm2 startup systemd -u ec2-user --hp /home/ec2-user
-EOT
+
+
 
 EOF
 }
+    ##installing and configuring Node.js application using user data script which is different to static HTML page hosting via Apache,
+    ##the intention of this script is to deploy node.js app on ec2 by copying all files from git to ec2 instance
+##    user_data =  <<-EOF
+##     #!/bin/bash
+##dnf update -y
+##
+### Install Git
+##dnf install git -y
+##
+##curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+##dnf install -y nodejs
+##
+##
+### -------------------------------
+### Install PM2 correctly for ec2-user
+### -------------------------------
+##sudo su - ec2-user <<'EOT'
+### Create user-local npm global directory
+##mkdir -p ~/.npm-global
+##npm config set prefix '~/.npm-global'
+##
+### Add it to PATH permanently
+##echo 'export PATH=$HOME/.npm-global/bin:$PATH' >> ~/.bashrc
+##export PATH=$HOME/.npm-global/bin:$PATH
+##
+### Install PM2 globally
+##npm install -g pm2
+##EOT
+##
+### Create app directory
+##APP_DIR=/home/ec2-user/myapp
+##mkdir -p $APP_DIR
+##chown ec2-user:ec2-user $APP_DIR
+##
+##cd $APP_DIR
+##
+### Clone or pull the latest code from GitHub
+##REPO_URL="https://github.com/chrise3435/CloudProject1.git"
+##if [ -d "$APP_DIR/.git" ]; then
+##    cd $APP_DIR
+##    git pull
+##else
+##    git clone $REPO_URL $APP_DIR
+##fi
+### Ensure package.json has type: module
+##cat <<EOT > package.json
+##{
+##  "name": "myapp",
+##  "version": "1.0.0",
+##  "type": "module",
+##  "scripts": {
+##    "start": "node server.js"
+##  }
+##}
+##EOT
+##
+### -------------------------------
+### Install Node dependencies
+### -------------------------------
+### Switch to ec2-user to ensure npm uses correct permissions
+##sudo su - ec2-user <<'EOT'
+##cd /home/ec2-user/myapp
+##npm install
+##EOT
+##
+### -------------------------------
+### Start app with PM2
+### -------------------------------
+##sudo su - ec2-user <<'EOT'
+##cd /home/ec2-user/myapp
+### Kill any old PM2 processes to avoid caching issues
+##pm2 delete all || true
+##pm2 start server.js --name myapp
+##pm2 save
+##pm2 startup systemd -u ec2-user --hp /home/ec2-user
+##EOT
+##
+##EOF
+##}
 
 ##
 ##           user_data = <<-EOF
@@ -188,3 +277,6 @@ resource "aws_db_instance" "mydbinstance" {
        publicly_accessible = false
        
    }
+
+
+
