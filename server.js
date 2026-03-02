@@ -6,6 +6,7 @@ import express from "express";
 import cors from "cors";
 import 'dotenv/config';
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { SecretsManagerClient, GetSecretValueCommand } 
   from "@aws-sdk/client-secrets-manager";
