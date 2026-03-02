@@ -46,7 +46,7 @@ async function initializeDbconnection() { //this function initializes the databa
     password: credentials.password,
     database: credentials.database,
     port: credentials.port,
-    ssl:  { ca: fs.readFileSync(path.join(__dirname, "global-bundle.pem")).toString() }, // this is to ensure that the connection to the database is secure by using SSL and providing the CA certificate for verification
+    //ssl:  { ca: fs.readFileSync(path.join(__dirname, "global-bundle.pem")).toString() }, // this is to ensure that the connection to the database is secure by using SSL and providing the CA certificate for verification
       waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
