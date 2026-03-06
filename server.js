@@ -137,7 +137,8 @@ app.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert into database
-    await pool.query('INSERT INTO users(username, password) VALUES($1, $2)', [username, hashedPassword]);
+    const result = await pool.query('INSERT INTO users(username, password_hash) VALUES($1, $2)', [username, hashedPassword]);
+    console.log("This is result:", result); // this is to log the successful registration of a user for debugging purposes, it helps to confirm that the user registration process is working correctly and can be useful for troubleshooting issues related to user registration by providing confirmation in the server logs when a user is successfully registered
 
     res.json({ success: true });
   } catch (err) {
