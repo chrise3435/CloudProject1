@@ -124,6 +124,7 @@ app.post('/api/login', async (req, res) => {
 //// user account creation logic, this function is called when a user signs up to the web app
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
+  console.log("Received registration request for username:", username); // this is to log the registration request for debugging purposes, it helps to verify that the server is receiving the registration requests correctly and can be useful for troubleshooting issues related to user registration
 
   try {
     // Check if user exists
@@ -140,7 +141,7 @@ app.post('/register', async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
+    console.error("This is the error:", err); // this is to log any errors that occur during the registration process for debugging purposes, it helps to identify and troubleshoot issues related to user registration by providing detailed error information in the server logs
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
