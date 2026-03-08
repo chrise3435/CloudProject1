@@ -22,7 +22,9 @@ const corsOptions = {
 app.use(cors(corsOptions)); 
 app.use(express.json());
 app.use(express.static('files')); // this is to ensure server can show files from files folder, so when server starts all the files in 'files folder' will run
-import { Pool } from 'pg'; //this is for the connection pool to the database, it allows us to manage multiple connections to the database efficiently by reusing existing connections instead of creating new ones for each request
+//import { Pool } from 'pg'; //this is for the connection pool to the database, it allows us to manage multiple connections to the database efficiently by reusing existing connections instead of creating new ones for each request
+import mysql from 'mysql2/promise';
+ // this is for the connection pool to the database, it allows us to manage multiple connections to the database efficiently by reusing existing connections instead of creating new ones for each request
 import bcrypt from 'bcrypt'; // bcrypt is used for hashing passwords before storing them in the database for security
 let pool;
 
@@ -40,7 +42,7 @@ async function getDbCredentials() { //this function gets the db credentials from
 async function initializeDbconnection() { //this function initializes the database connection pool using the credentials retrieved from AWS Secrets Manager, this is called when the server starts to ensure that the database connection is established and ready to handle requests
   const credentials = await getDbCredentials();
 
-  pool = new Pool({
+   pool = mysql.createPool({
     host: credentials.host,
     user: credentials.username,
     password: credentials.password,
@@ -101,7 +103,7 @@ app.post('/api/login', async (req, res) => {
       return res.json({ success: false, message: "User not found" });
     }
 
-    const storedHash = result.rows[0].password;
+    const storedHash = result.rows[0].password_hash;
     const match = await bcrypt.compare(password, storedHash);
 
     if(match){
@@ -124,8 +126,9 @@ app.post('/api/login', async (req, res) => {
 //// user account creation logic, this function is called when a user signs up to the web app
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
-  console.log("Received registration request for username:", username); // this is to log the registration request for debugging purposes, it helps to verify that the server is receiving the registration requests correctly and can be useful for troubleshooting issues related to user registration
+  console.log("Received registration request for username:", username, "and password:", password); // this is to log the registration request for debugging purposes, it helps to verify that the server is receiving the registration requests correctly and can be useful for troubleshooting issues related to user registration
 
+  console.log("This is the database pool object:", pool); // this is to log the database pool object for debugging purposes, it helps to confirm that the database connection pool is initialized correctly and can be useful for troubleshooting issues related to database connectivity by providing confirmation in the server logs that the pool object is available and properly configured
   try {
     // Check if user exists
     const exists = await pool.query('SELECT * FROM users WHERE username=$1', [username]);
@@ -135,9 +138,10 @@ app.post('/register', async (req, res) => {
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("Hashed password for username", username, "is:", hashedPassword); // this is to log the hashed password for debugging purposes, it helps to confirm that the password hashing process is working correctly and can be useful for troubleshooting issues related to password hashing by providing confirmation in the server logs when a password is successfully hashed
 
     // Insert into database
-    const result = await pool.query('INSERT INTO users(username, password_hash) VALUES($1, $2)', [username, hashedPassword]);
+    const result = await pool.execute('INSERT INTO users(username, password_hash) VALUES(?, ?)', [username, hashedPassword]);
     console.log("This is result:", result); // this is to log the successful registration of a user for debugging purposes, it helps to confirm that the user registration process is working correctly and can be useful for troubleshooting issues related to user registration by providing confirmation in the server logs when a user is successfully registered
 
     res.json({ success: true });
