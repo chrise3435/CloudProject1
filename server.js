@@ -127,13 +127,13 @@ app.post('/api/login', async (req, res) => {
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
   console.log("Received registration request for username:", username, "and password:", password); // this is to log the registration request for debugging purposes, it helps to verify that the server is receiving the registration requests correctly and can be useful for troubleshooting issues related to user registration
-  console.log("This is the database :", pool.database); // this is to log the database, to see if it can be recognised as part of troubleshooting the 1046 “No database selected” error
+  //console.log("This is the database :", pool.database); // this is to log the database, to see if it can be recognised as part of troubleshooting the 1046 “No database selected” error
 
   console.log("This is the database pool object:", pool); // this is to log the database pool object for debugging purposes, it helps to confirm that the database connection pool is initialized correctly and can be useful for troubleshooting issues related to database connectivity by providing confirmation in the server logs that the pool object is available and properly configured
   try {
     // Check if user exists
-    const exists = await pool.query('SELECT * FROM users WHERE username=?', [username]);
-    if (exists.rows.length > 0) {
+    const [rows] = await pool.query('SELECT * FROM users WHERE username=?', [username]);
+    if (rows.length > 0) {
       return res.json({ success: false, message: "Username already exists" });
     }
 
