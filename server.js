@@ -46,7 +46,7 @@ async function initializeDbconnection() { //this function initializes the databa
     host: credentials.host,
     user: credentials.username,
     password: credentials.password,
-    database: credentials.database,
+    database: credentials.dbname,
     port: credentials.port,
     //ssl:  { ca: fs.readFileSync(path.join(__dirname, "global-bundle.pem")).toString() }, // this is to ensure that the connection to the database is secure by using SSL and providing the CA certificate for verification
       waitForConnections: true,
@@ -54,7 +54,7 @@ async function initializeDbconnection() { //this function initializes the databa
   queueLimit: 0
   });
 
-  console.log("Database connected TO :", credentials.host, "Under username : ", credentials.username);
+  console.log("Database connected TO :", credentials.host, "Under username : ", credentials.username, "Intended for: ", credentials.dbname, "not: ", credentials.database); // this is to log the successful connection to the database for debugging purposes, it helps to confirm that the database connection is established correctly and can be useful for troubleshooting issues related to database connectivity by providing confirmation in the server logs that the connection to the database was successful along with the host, username, and database name
 
 }
 
@@ -127,6 +127,7 @@ app.post('/api/login', async (req, res) => {
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
   console.log("Received registration request for username:", username, "and password:", password); // this is to log the registration request for debugging purposes, it helps to verify that the server is receiving the registration requests correctly and can be useful for troubleshooting issues related to user registration
+  console.log("This is the database :", pool.database); // this is to log the database, to see if it can be recognised as part of troubleshooting the 1046 “No database selected” error
 
   console.log("This is the database pool object:", pool); // this is to log the database pool object for debugging purposes, it helps to confirm that the database connection pool is initialized correctly and can be useful for troubleshooting issues related to database connectivity by providing confirmation in the server logs that the pool object is available and properly configured
   try {
