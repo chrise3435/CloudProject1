@@ -21,6 +21,19 @@ const corsOptions = {
 }; 
 app.use(cors(corsOptions)); 
 app.use(express.json());
+function authMiddleware(req, res, next) {
+  console.log("This is the session object in authMiddleware:", req.session); // this is to log the session object for debugging purposes, it helps to confirm that the session management is working correctly and can be useful for troubleshooting issues related to user authentication by providing detailed information about the session state in the server logs
+  if (req.session.userId) {
+    next()
+  } else {
+    res.redirect('/loginpage.html')
+  }
+}
+
+app.get("/homepage.html", authMiddleware, (req, res) => { // this is to ensure only logged in users can access the homepage, if they are not logged in they will be redirected to the login page
+  res.sendFile(path.join(__dirname, "files", "homepage.html"));
+});
+
 app.use(express.static('files')); // this is to ensure server can show files from files folder, so when server starts all the files in 'files folder' will run
 //import { Pool } from 'pg'; //this is for the connection pool to the database, it allows us to manage multiple connections to the database efficiently by reusing existing connections instead of creating new ones for each request
 import mysql from 'mysql2/promise';
@@ -58,17 +71,19 @@ async function initializeDbconnection() { //this function initializes the databa
 
 }
 
+
 //setting the default page which is login, this means the page that first shows up when the user opens webapp  
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "files", "loginpage.html"));
 });
 
-app.get("/homepage.html", requireLogin, (req, res) => { // this is to ensure only logged in users can access the homepage, if they are not logged in they will be redirected to the login page
-  res.sendFile(path.join(__dirname, "files", "homepage.html"));
-});
+//app.get("/homepage.html", authMiddleware, (req, res) => { // this is to ensure only logged in users can access the homepage, if they are not logged in they will be redirected to the login page
+//  res.sendFile(path.join(__dirname, "files", "homepage.html"));
+//});
 
 app.get("/createaccount.html", (req, res) => {
   res.sendFile(path.join(__dirname, "files", "createaccount.html"));
+
 });
 app.post("/get-presigned-url", async (req, res) => {
   try {
@@ -152,12 +167,7 @@ app.post('/register', async (req, res) => {
   }
 });
 
-function requireLogin(req, res, next) {
-  if (!req.session.userId) {
-    return res.redirect('/loginpage.html'); // send them to login page
-  }
-  next();
-}
+
 
 async function startServer() {
   await initializeDbconnection(); // Initialize the database connection before starting the server
