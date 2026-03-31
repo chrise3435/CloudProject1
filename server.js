@@ -151,10 +151,7 @@ app.post('/api/login', async (req, res) => {
         req.session.userId = rows[0].id;
         req.session.userName = username;
 
-      res.json({ success: true });
-
-      //redirect to homepage after successful login
-      res.redirect('/homepage.html');
+        return res.json({ success: true, redirect: '/homepage.html' }); // redirect to homepage if login is successful, this is to ensure that the user is redirected to the homepage after a successful login, providing a better user experience by taking them directly to the main page of the webapp where they can access its features
 
 
     } else {
