@@ -110,10 +110,11 @@ app.post("/get-presigned-url", async (req, res) => {
 // logic for handling a user login request, this function is called when a user attempts to log in to the webapp
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
+    console.log("This is login for username", username, ":", password); // added extra line to see if this will output username and password for debugging and troubleshooting purposes
 
   try {
-    const result = await pool.query('SELECT password FROM users WHERE username=$1', [username]);
-    
+    const result = await pool.query('SELECT password_hash FROM users WHERE username=$1', [username]);
+    console.log("This is the result of the database query for username", username, ":", result); // this is to log the result of the database query for debugging purposes, it helps to confirm that the query is executed correctly and can be useful for troubleshooting issues related to user authentication by providing detailed information about the query result in the server logs
     if(result.rows.length === 0){
       return res.json({ success: false, message: "User not found" });
     }
