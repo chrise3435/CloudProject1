@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
     uploadForm.addEventListener('submit', async (event) => {
       event.preventDefault();
 
-      const file = fileInput .files[0];
+      const file = fileInput.files[0];
       const messageEl = document.getElementById('message');
 
       if (!file) {
@@ -173,6 +173,7 @@ async function loginUser() {
     if (result.success) {
       messageEl.style.color = 'green';
       messageEl.innerText = "Login successful!";
+      window.location.href = result.redirect; //this will ensure user gets auto redirected to the homepage after a successful login
     } else {
       messageEl.style.color = 'red';
       messageEl.innerText = result.message;
