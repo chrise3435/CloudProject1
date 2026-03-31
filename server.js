@@ -15,12 +15,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const session = require('express-session');
+
+
+
 const corsOptions = {
   origin: 'http://localhost:3000',
   optionsSuccessStatus: 200,
 }; 
 app.use(cors(corsOptions)); 
 app.use(express.json());
+
 function authMiddleware(req, res, next) {
   console.log("This is the session object in authMiddleware:", req.session); // this is to log the session object for debugging purposes, it helps to confirm that the session management is working correctly and can be useful for troubleshooting issues related to user authentication by providing detailed information about the session state in the server logs
   if (req.session.userId) {
@@ -71,7 +76,25 @@ async function initializeDbconnection() { //this function initializes the databa
 
 }
 
+ //getting session secret key 
 
+  async function getSessionSecret() { // this function retrieves the session secret key from AWS Secrets Manager, this is to ensure that the session secret key is securely stored in AWS Secrets Manager and not hardcoded in the code, allowing for easier management of the secret key without needing to change the code
+    const client = new SecretsManagerClient({ region: "ap-southeast-2" }); // Create a Secrets Manager client, this is used to interact with AWS Secrets Manager to retrieve the session secret key
+    const response = await client.send(
+      new GetSecretValueCommand({
+        SecretId: "myapp/session-secret"
+      })
+    );
+
+    return response.SecretString;
+  }
+
+
+app.use(session({
+  secret: await getSessionSecret(),
+  resave: false,
+  saveUninitialized: false
+}));
 //setting the default page which is login, this means the page that first shows up when the user opens webapp  
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "files", "loginpage.html"));
@@ -113,7 +136,7 @@ app.post('/api/login', async (req, res) => {
     console.log("This is login for username", username, ":", password); // added extra line to see if this will output username and password for debugging and troubleshooting purposes
 
   try {
-    const [rows] = await pool.query('SELECT password_hash FROM users WHERE username=?', [username]);
+    const [rows] = await pool.query('SELECT id, password_hash FROM users WHERE username=?', [username]);
     console.log("This is the result of the database query for username", username, ":", rows); // this is to log the result of the database query for debugging purposes, it helps to confirm that the query is executed correctly and can be useful for troubleshooting issues related to user authentication by providing detailed information about the query result in the server logs
     if(rows.length === 0){
       return res.json({ success: false, message: "User not found" });
@@ -127,6 +150,9 @@ app.post('/api/login', async (req, res) => {
         req.session.userName = username;
 
       res.json({ success: true });
+
+      //redirect to homepage after successful login
+      // res.redirect('/homepage.html');
 
 
     } else {
