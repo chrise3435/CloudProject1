@@ -113,13 +113,13 @@ app.post('/api/login', async (req, res) => {
     console.log("This is login for username", username, ":", password); // added extra line to see if this will output username and password for debugging and troubleshooting purposes
 
   try {
-    const result = await pool.query('SELECT password_hash FROM users WHERE username=?', [username]);
-    console.log("This is the result of the database query for username", username, ":", result); // this is to log the result of the database query for debugging purposes, it helps to confirm that the query is executed correctly and can be useful for troubleshooting issues related to user authentication by providing detailed information about the query result in the server logs
-    if(result.rows.length === 0){
+    const [rows] = await pool.query('SELECT password_hash FROM users WHERE username=?', [username]);
+    console.log("This is the result of the database query for username", username, ":", rows); // this is to log the result of the database query for debugging purposes, it helps to confirm that the query is executed correctly and can be useful for troubleshooting issues related to user authentication by providing detailed information about the query result in the server logs
+    if(rows.length === 0){
       return res.json({ success: false, message: "User not found" });
     }
 
-    const storedHash = result.rows[0].password_hash;
+    const storedHash = rows[0].password_hash;
     const match = await bcrypt.compare(password, storedHash);
 
     if(match){
