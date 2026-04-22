@@ -48,6 +48,10 @@ resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configurat
     max_age_seconds = 3000
   }
 }
+
+
+
+
 ##EC2 instance (simple webserver)
 resource "aws_instance" "tf-web-instance" { ##giving name of instance
     ami = "ami-0361bbf2b99f46c1d" ##using Amazon Linux 2023 AMI, changing to Amazon Linux 2023 as its supported by Node.js 18
@@ -72,7 +76,7 @@ set -e
 # System update + tools
 # ------------------------------------
 dnf update -y
-dnf install -y git curl
+dnf install -y git curl wget
 
 # ------------------------------------
 # Install Node.js 18
@@ -123,7 +127,7 @@ runuser -l ec2-user -c "
   cd $APP_DIR
   npm install
     # Download the RDS global CA bundle
-  wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+  wget -O global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 
   # Ensure correct ownership (important!)
   chown ec2-user:ec2-user global-bundle.pem
@@ -148,10 +152,27 @@ runuser -l ec2-user -c "
 # Enable PM2 startup on reboot
 # ------------------------------------
 export PATH=$NPM_GLOBAL_DIR/bin:$PATH
-pm2 startup systemd -u ec2-user --hp /home/ec2-user
+pm2 startup systemd -u ec2-user --hp /home/ec2-user --silent
+runuser -l ec2-user -c "pm2 save"
 
 
+    # ------------------------------------
+    # Auto-update script on reboot
+    # ------------------------------------
+    cat << 'SCRIPT' > /home/ec2-user/reboot-update.sh
+    #!/bin/bash
+    export PATH=/home/ec2-user/.npm-global/bin:$PATH
+    APP_DIR=/home/ec2-user/myapp
+    cd $APP_DIR
+    git reset --hard
+    git pull origin main
+    npm install
+    pm2 restart myapp || pm2 start server.js --name myapp
+    pm2 save
+SCRIPT
 
+    chmod +x /home/ec2-user/reboot-update.sh
+    (crontab -l -u ec2-user 2>/dev/null; echo "@reboot /home/ec2-user/reboot-update.sh") | crontab -u ec2-user -
 EOF
 }
  
@@ -181,11 +202,9 @@ resource "aws_db_instance" "mydbinstance" {
        tags = {
            Name = "websitedatabase"
        }
-       multi_az =  false   
+       multi_az =  true ##enabling multi-AZ deployment for high availability and failover support   
        availability_zone = var.availability_zone
        publicly_accessible = false
        
    }
-
-
 
