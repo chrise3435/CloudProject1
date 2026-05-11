@@ -10,7 +10,12 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { SecretsManagerClient, GetSecretValueCommand } 
   from "@aws-sdk/client-secrets-manager";
-
+import {
+  CognitoIdentityProviderClient,
+  InitiateAuthCommand,
+} from "@aws-sdk/client-cognito-identity-provider";
+import jwt from "jsonwebtoken";
+import jwksClient from "jwks-rsa";
 import session from "express-session";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,6 +47,7 @@ app.use(session({
 
 const corsOptions = {
   origin: 'http://localhost:3000',
+  // "http://${aws_eip.app_eip.public_ip}:3000" ##also planning on using EC2's elastic IP in the CORS configuration in order for S3 bucket to communicate with EC2 without hardcoding the IP
   optionsSuccessStatus: 200,
 }; 
 app.use(cors(corsOptions)); 
@@ -78,8 +84,31 @@ async function getDbCredentials() { //this function gets the db credentials from
 
   return JSON.parse(response.SecretString);
 }
+
+ async function getCognitoConfig() {
+
+  const command = new GetSecretValueCommand({
+    SecretId: "cognito/config"
+  });
+
+  const response = await client.send(command);
+
+  const secret = JSON.parse(response.SecretString);
+
+  return {
+    userPoolId: secret.COGNITO_USER_POOL_ID,
+    clientId: secret.COGNITO_CLIENT_ID,
+    region: secret.AWS_REGION
+  };
+}
+
 async function initializeDbconnection() { //this function initializes the database connection pool using the credentials retrieved from AWS Secrets Manager, this is called when the server starts to ensure that the database connection is established and ready to handle requests
   const credentials = await getDbCredentials();
+    await db.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS cognito_migrated BOOLEAN DEFAULT false
+  `);
+
 
    pool = mysql.createPool({
     host: credentials.host,
@@ -134,8 +163,63 @@ app.post("/get-presigned-url", async (req, res) => {
 
 // logic for handling a user login request, this function is called when a user attempts to log in to the webapp
 app.post('/api/login', async (req, res) => {
+  
   const { username, password } = req.body;
     console.log("This is login for username", username, ":", password); // added extra line to see if this will output username and password for debugging and troubleshooting purposes
+    const config = await getCognitoConfig();
+
+  try {
+
+
+  //TRY Cognito authentication first, if it fails then have user and password created in cognito using details
+  // from RDS, once
+  //that is done, have the password hash field set to NULL for user, and have a boolean field cfalled 
+  //cognito_migrated set to true, so that when user tries to log in again, it will check if 
+  // cognito_migrated is true, if it is, then it will try to authenticate with cognito, if it fails, then it will return an error message, if it succeeds, then it will set the password hash field to NULL and cognito_migrated to true, so that next time user tries to log in, it will only try to authenticate with cognito
+
+
+
+     const cognitoResult = await cognito.send(
+      new AdminInitiateAuthCommand({
+        UserPoolId: config.userPoolId,
+        ClientId: config.clientId,
+
+        AuthFlow: "ADMIN_USER_PASSWORD_AUTH",
+
+        AuthParameters: {
+          USERNAME: username,
+          PASSWORD: password
+        }
+      })
+    );
+
+    console.log("Authenticated via Cognito")
+
+        return res.json({
+      success: true,
+      redirect: "/homepage.html", //if user exists in cognito and password is correct, user is immediately taken to homepage
+      tokens: cognitoResult.AuthenticationResult
+    });
+
+  } catch (cognitoErr) {
+
+    console.log("Not yet migrated or Cognito login failed");
+  }
+  const credentials = await getDbCredentials();
+
+ const db = new Pool({
+     host: credentials.host,
+    user: credentials.username,
+    password: credentials.password,
+    database: credentials.database,
+    port: credentials.port,
+    ssl:  { ca: fs.readFileSync(path.join(__dirname, "global-bundle.pem")).toString() }, // this is to ensure that the connection to the database is secure by using SSL and providing the CA certificate for verification
+      waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+  });
+
+  await db.connect();
 
   try {
     const [rows] = await pool.query('SELECT id, password_hash FROM users WHERE username=?', [username]);
@@ -151,7 +235,35 @@ app.post('/api/login', async (req, res) => {
         req.session.userId = rows[0].id;
         req.session.userName = username;
 
-        return res.json({ success: true, redirect: '/homepage.html' }); // redirect to homepage if login is successful, this is to ensure that the user is redirected to the homepage after a successful login, providing a better user experience by taking them directly to the main page of the webapp where they can access its features
+        //return res.json({ success: true, redirect: '/homepage.html' }); // redirect to homepage if login is successful, this is to ensure that the user is redirected to the homepage after a successful login, providing a better user experience by taking them directly to the main page of the webapp where they can access its features
+
+        //migrate user to cognito if database credentials exists and password is correct, this is to ensure that users are migrated to Cognito for authentication, allowing for better security and scalability of the authentication system by leveraging AWS Cognito's features while still allowing existing users to log in with their current credentials and be seamlessly migrated to the new authentication system
+        try { 
+          await cognito.send(
+            new AdminCreateUserCommand({
+              UserPoolId: config.userPoolId,
+              Username: username,
+              TemporaryPassword: password,
+              UserAttributes: [
+                { Name: "email", Value: `${
+                  username
+                }@example.com` }
+              ],
+              MessageAction: "SUPPRESS"
+            })
+          );    
+          console.log("User created in Cognito for username", username); // this is to log the successful creation of a user in Cognito for debugging purposes, it helps to confirm that the user migration to Cognito is working correctly and can be useful for troubleshooting issues related to user migration by providing confirmation in the server logs when a user is successfully created in Cognito
+
+          await pool.query('UPDATE users SET password_hash=NULL, cognito_migrated=true WHERE id=?', [rows[0].id]);
+          console.log("User record updated in database for username", username, "to set password_hash to NULL and cognito_migrated to true"); // this is to log the successful update of the user record in the database for debugging purposes, it helps to confirm that the user record is updated correctly after migration to Cognito and can be useful for troubleshooting issues related to user migration by providing confirmation in the server logs when the user record is successfully updated in the database after migration to Cognito
+          return res.json({
+            success: true,
+            redirect: "/homepage.html", //if user is successfully migrated to cognito, they are immediately taken to homepage
+          });
+        } catch (migrationErr) {
+          console.error("Error during migration to Cognito for username", username, ":", migrationErr);
+          return res.json({ success: false, message: "Error migrating user to Cognito" });
+        }
 
 
     } else {
@@ -163,6 +275,8 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
+
 //
 //// user account creation logic, this function is called when a user signs up to the web app
 app.post('/register', async (req, res) => {

@@ -42,7 +42,10 @@ resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configurat
 
   cors_rule {
     allowed_methods = ["GET", "PUT", "POST", "DELETE"]
-    allowed_origins = ["http://localhost:3000"] ##allowing requests only from localhost:80
+    allowed_origins = [  "http://localhost:3000"
+  ##  ,
+  ##                    "http://${aws_eip.app_eip.public_ip}:3000" ##also planning on using EC2's elastic IP in the CORS configuration in order for S3 bucket to communicate with EC2 without hardcoding the IP 
+                       ]  
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
@@ -202,7 +205,7 @@ resource "aws_db_instance" "mydbinstance" {
        tags = {
            Name = "websitedatabase"
        }
-       multi_az =  true ##enabling multi-AZ deployment for high availability and failover support   
+       multi_az =  false
        availability_zone = var.availability_zone
        publicly_accessible = false
        
