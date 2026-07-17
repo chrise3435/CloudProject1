@@ -23,8 +23,8 @@ provider "aws" { ##declaring the cloud platform provider that we will use terraf
 
 # S3 bucket 
 
-resource "aws_s3_bucket" "appimagesbucket-1234567890" { 
-    bucket = "appimagesbucket-1234567890" ##declaring name for the bucket
+resource "aws_s3_bucket" "appimagesbucket-12345678901" { 
+    bucket = "appimagesbucket-12345678901" ##declaring name for the bucket
     acl    = "private"
 
     versioning {
@@ -34,17 +34,15 @@ resource "aws_s3_bucket" "appimagesbucket-1234567890" {
     force_destroy = true
 
     tags = {
-        Name        = "appimagesbucket-1234567890"
+        Name        = "appimagesbucket-12345678901"
     }
 }
 resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configuration for S3 bucket for testing from local website
-  bucket = aws_s3_bucket.appimagesbucket-1234567890.id
+  bucket = aws_s3_bucket.appimagesbucket-12345678901.id
 
   cors_rule {
     allowed_methods = ["GET", "PUT", "POST", "DELETE"]
-    allowed_origins = [  "http://localhost:3000"
-  ##  ,
-  ##                    "http://${aws_eip.app_eip.public_ip}:3000" ##also planning on using EC2's elastic IP in the CORS configuration in order for S3 bucket to communicate with EC2 without hardcoding the IP 
+    allowed_origins = [  "http://${aws_eip.app_eip.public_ip}:3000" ##also planning on using EC2's elastic IP in the CORS configuration in order for S3 bucket to communicate with EC2 without hardcoding the IP 
                        ]  
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]
@@ -64,7 +62,7 @@ resource "aws_instance" "tf-web-instance" { ##giving name of instance
      ##so that it can be accessed over the internet
     iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name ##attaching instance profile to EC2 instance
     disable_api_termination = true ##enabling termination protection to prevent EC2 virtual server from being accidentally terminated
-    key_name      = aws_key_pair.ec2_key.key_name ##associating key pair to allow SSH access to instance
+    #key_name      = aws_key_pair.ec2_key.key_name ##associating key pair to allow SSH access to instance
 
 
     tags = {
@@ -181,33 +179,33 @@ EOF
  
 
 ##creating subnet group for RDS instance
-resource "aws_db_subnet_group" "rds_subnet_group" { 
-  name       = "websitedatabasesubnetgroup"
-  subnet_ids = var.subnet_ids
-
-  tags = {
-    Name = "websitedatabasesubnetgroup"
-  }
-}
-##creating the rds database instance
-resource "aws_db_instance" "mydbinstance" {   
-   allocated_storage    = 20
-       engine               = "mysql"
-       engine_version       = "8.0"
-       instance_class       = "db.t3.micro"
-       db_name              = "websitedatabase"
-       username             = var.db_username
-       password             = var.db_password
-       parameter_group_name = "default.mysql8.0"
-       skip_final_snapshot  = true
-       vpc_security_group_ids = [aws_security_group.rds_sg.id] ##associating RDS security group to allow access from EC2 instance
-       db_subnet_group_name = aws_db_subnet_group.rds_subnet_group.name ##ensuring RDS instance is created in the specified subnets
-       tags = {
-           Name = "websitedatabase"
-       }
-       multi_az =  false
-       availability_zone = var.availability_zone
-       publicly_accessible = false
-       
-   }
+##resource "aws_db_subnet_group" "rds_subnet_group" { 
+##  name       = "websitedatabasesubnetgroup"
+##  subnet_ids = var.subnet_ids
+##
+##  tags = {
+##    Name = "websitedatabasesubnetgroup"
+##  }
+##}
+####creating the rds database instance
+##resource "aws_db_instance" "mydbinstance" {   
+##   allocated_storage    = 20
+##       engine               = "mysql"
+##       engine_version       = "8.0"
+##       instance_class       = "db.t3.micro"
+##       db_name              = "websitedatabase"
+##       username             = var.db_username
+##       password             = var.db_password
+##       parameter_group_name = "default.mysql8.0"
+##       skip_final_snapshot  = true
+##       vpc_security_group_ids = [aws_security_group.rds_sg.id] ##associating RDS security group to allow access from EC2 instance
+##       db_subnet_group_name = aws_db_subnet_group.rds_subnet_group.name ##ensuring RDS instance is created in the specified subnets
+##       tags = {
+##           Name = "websitedatabase"
+##       }
+##       multi_az =  false
+##       availability_zone = var.availability_zone
+##       publicly_accessible = false
+##       
+##   }
 
