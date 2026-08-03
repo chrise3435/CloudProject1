@@ -150,7 +150,7 @@ app.post("/get-presigned-url", async (req, res) => {
     const fileType = req.body.fileType;
 
     const command = new PutObjectCommand({
-      Bucket: "appimagesbucket-1234567890",
+      Bucket: "appimagesbucket-12345678901",
       Key: fileName,
       ContentType: fileType,
     });
