@@ -42,14 +42,13 @@ resource "aws_s3_bucket_cors_configuration" "my_bucket_cors" { ##CORS configurat
 
   cors_rule {
     allowed_methods = ["GET", "PUT", "POST", "DELETE"]
-    allowed_origins = [  "http://${aws_eip.app_eip.public_ip}:3000" ##also planning on using EC2's elastic IP in the CORS configuration in order for S3 bucket to communicate with EC2 without hardcoding the IP 
+    allowed_origins = [  "http://${aws_eip.app_eip.public_ip}:3000" ##also planning on using EC2's elastic IP in the CORS configuration in order for S3 bucket to communicate with EC2 without hardcoding the IP. Note: A Route 53 domain name is preferred, but due to account restrictions, an Elastic IP is used as a workaround for a stable EC2-to-S3 connection.
                        ]  
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
   }
 }
-
 
 
 
@@ -70,8 +69,8 @@ resource "aws_instance" "tf-web-instance" { ##giving name of instance
     }
     ##difference in below script is it get me to install pm2 as ec2 user rather than root user
   user_data = <<-EOF
-#!/bin/bash
-set -e
+  #!/bin/bash
+  #set -e
 
 # ------------------------------------
 # System update + tools
@@ -91,8 +90,8 @@ dnf install -y nodejs
 # ------------------------------------
 NPM_GLOBAL_DIR=/home/ec2-user/.npm-global
 
-mkdir -p $NPM_GLOBAL_DIR
-chown -R ec2-user:ec2-user $NPM_GLOBAL_DIR
+mkdir -p $NPM_GLOBAL_DIR #this line creates the npm global directory if it doesn't already exist. This is important because npm will install global packages into this directory, and if the directory doesn't exist, the npm install command will fail.
+chown -R ec2-user:ec2-user $NPM_GLOBAL_DIR #this changes the ownership of the npm global directory to the ec2-user user and group, which is important for security and access control. This ensures that only the ec2-user user can modify the contents of this directory, preventing unauthorized users from installing or modifying global npm packages.
 
 runuser -l ec2-user -c "npm config set prefix $NPM_GLOBAL_DIR"
 
@@ -107,32 +106,32 @@ runuser -l ec2-user -c "
 "
 
 # ------------------------------------
-# Clone app repo
+# Clone app repo from github repo
 # ------------------------------------
 APP_DIR=/home/ec2-user/myapp
 REPO_URL="https://github.com/chrise3435/CloudProject1.git"
 
-mkdir -p $APP_DIR
-chown ec2-user:ec2-user $APP_DIR
+mkdir -p $APP_DIR # this line creates the app directory in the EC2 server if it doesn't already exist. This is important because the app will be cloned into this directory, and if the directory doesn't exist, the git clone command will fail.
+chown ec2-user:ec2-user $APP_DIR # this is to change the owner of the app directory to the ec2-user user and e2-user group so that the ec2-user user can access and modify the files in the app directory. This is important because the app will be run as the ec2-user user, and if the ownership of the app directory is not set correctly, the app may not be able to access its own files, leading to errors or unexpected behavior.
 
 if [ -d "$APP_DIR/.git" ]; then
 runuser -l ec2-user -c "cd \"$APP_DIR\" && git reset --hard && git pull origin main"
 else
-  runuser -l ec2-user -c "git clone $REPO_URL $APP_DIR"
+  runuser -l ec2-user -c "git clone $REPO_URL $APP_DIR" ## this line clones the app repo from github repo to the app directory in the EC2 server. This is important because the app needs to be downloaded from the github repo in order to be run on the EC2 server as the app contains server side code that needs to be executed on the EC2 server. If the app is not cloned from the github repo, the EC2 server will not have the necessary files to run the app, leading to errors or unexpected behavior. 
 fi
 
 # ------------------------------------
 # Install dependencies
 runuser -l ec2-user -c "
   export PATH=$NPM_GLOBAL_DIR/bin:\$PATH
-  cd $APP_DIR
+  cd $APP_DIR ## this line navigates to the app directory in the EC2 server so that the npm dependencies can be installed in the /home/ec2-user/app location
   npm install
     # Download the RDS global CA bundle
   wget -O global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 
   # Ensure correct ownership (important!)
-  chown ec2-user:ec2-user global-bundle.pem
-  chmod 644 global-bundle.pem
+  chown ec2-user:ec2-user global-bundle.pem #this assigns the ownership of the .pem file to the ec2-user user and group, which is important for security and access control.
+  chmod 644 global-bundle.pem #this is used to modify the permissions of the .pem file to give read/write permissions only to the user that owns the file and assings only read permissions to the group and others. This is important for security, as it prevents unauthorized users from modifying the file.
 
 "
 
@@ -141,7 +140,7 @@ runuser -l ec2-user -c "
 # ------------------------------------
 runuser -l ec2-user -c "
   export PATH=$NPM_GLOBAL_DIR/bin:\$PATH
-  cd $APP_DIR
+  cd $APP_DIR  ## this line navigates to the app directory in the EC2 server so the server can be booted up from the same location as where the dependencies were installed. This is important because the server may rely on relative paths to access its dependencies, and if it is started from a different location, it may not be able to find them, leading to errors or unexpected behavior. 
   pm2 start server.js --name myapp
   pm2 save
 "
